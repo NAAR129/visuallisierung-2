@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Completar el cuadrado — Ejemplo x² + 10x = 39 (ES/DE) v9</title>
+<style>
+  :root { --border:#111; --bg:#fff; --shadow:0 1px 3px rgba(0,0,0,.08); }
+  body { margin: 0; background: var(--bg); color:#111; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+  .viewport { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+  .panel { width: 100%; max-width: 960px; text-align: center; }
+  .bar { display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; margin: 10px 0; }
+  button, select { font: inherit; border:1px solid #d1d5db; border-radius:10px; padding:6px 10px; background:#fff; cursor:pointer; box-shadow: var(--shadow); }
+  button:hover { background:#f8fafc; }
+  #svg { border:1px solid #e5e7eb; border-radius:16px; background:#fff; box-shadow: var(--shadow); }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 600; margin-top: 10px; }
+  .explain { border:1px solid #e5e7eb; background:#fafafa; border-radius:12px; padding:10px; box-shadow:0 1px 2px rgba(0,0,0,.04); margin-top:10px; }
+  .slider { width: 100%; max-width: 560px; margin: 10px auto; display:flex; align-items:center; gap:8px; justify-content:center; }
+  .slider input { width: 100%; }
+</style>
+</head>
+<body>
+<div class="viewport">
+  <div class="panel">
+    <h1 id="title">Completar el cuadrado — Ejemplo: x² + 10x = 39</h1>
+    <div class="bar">
+      <select id="lang">
+        <option value="es" selected>Español</option>
+        <option value="de">Deutsch</option>
+      </select>
+      <button id="play">Reproducir</button>
+      <button id="pause">Pausar</button>
+      <button id="reset">Reiniciar</button>
+    </div>
+    <svg id="svg" width="560" height="600"></svg>
+    <div class="mono" id="formula">x² + 10x = 39</div>
+    <div class="explain"><p id="explain"></p></div>
+    <div class="slider"><span id="stepLabel">Paso</span><input id="step" type="range" min="0" max="5" step="1" value="0" /></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const i18n = {
+    es: {
+      title: "Completar el cuadrado — Ejemplo: x² + 10x = 39",
+      play:"Reproducir", pause:"Pausar", reset:"Reiniciar", step:"Paso",
+      top10:"10", measure5:"5", area10x:"10x",
+      total39:"Área total = 39", totalFinal:"Área total = 39 + 25 = 64",
+      f:["x² + 10x = 39","x²","x² + 10x (rectángulo ancho 10)","x² + 10x → 5x + 5x (lado superior 10)","x² + 5x (derecha, 5) y 5x (abajo, 5)","(x+5)² = 64 ⇒ x = 3"],
+      s:["Introducción","Dibujamos el cuadrado x²","Añadimos el rectángulo 10x (mostramos ‘10x’).",
+         "Dividimos en 5x + 5x y mantenemos la medida superior 10.",
+         "Movemos uno hacia abajo y marcamos 5 arriba y 5 a la izquierda.",
+         "Añadimos 5²: x² + 10x + 25 = 39 + 25 ⇒ (x+5)² = 64 ⇒ x=3."]
+    },
+    de: {
+      title: "Quadrat ergänzen — Beispiel: x² + 10x = 39",
+      play:"Abspielen", pause:"Pause", reset:"Zurücksetzen", step:"Schritt",
+      top10:"10", measure5:"5", area10x:"10x",
+      total39:"Gesamtfläche = 39", totalFinal:"Gesamtfläche = 39 + 25 = 64",
+      f:["x² + 10x = 39","x²","x² + 10x (Rechteck Breite 10)","x² + 10x → 5x + 5x (oben Länge 10)","x² + 5x (rechts, 5) und 5x (unten, 5)","(x+5)² = 64 ⇒ x = 3"],
+      s:["Einführung","Wir zeichnen das Quadrat x²","Wir fügen das Rechteck 10x hinzu (‘10x’ innen).",
+         "Wir teilen in 5x + 5x; oben bleibt die Länge 10.",
+         "Eines nach unten verschieben; 5 oben und 5 links markieren.",
+         "5² ergänzen: x² + 10x + 25 = 39 + 25 ⇒ (x+5)² = 64 ⇒ x=3."]
+    }
+  };
+
+  const svg = document.getElementById("svg");
+  const title = document.getElementById("title");
+  const formula = document.getElementById("formula");
+  const explain = document.getElementById("explain");
+  const langSel = document.getElementById("lang");
+  const playBtn = document.getElementById("play");
+  const pauseBtn = document.getElementById("pause");
+  const resetBtn = document.getElementById("reset");
+  const stepInput = document.getElementById("step");
+  const stepLabel = document.getElementById("stepLabel");
+
+  let step = 0; // 0..5
+  let lang = "es";
+  let timer = null;
+
+  const size = 560, pad = 40;
+
+  function el(name){ return document.createElementNS("http://www.w3.org/2000/svg", name); }
+  function clear(){ while(svg.firstChild) svg.removeChild(svg.firstChild); }
+  function line(x1,y1,x2,y2, stroke="#111", w=2){ const L=el("line"); L.setAttribute("x1",x1);L.setAttribute("y1",y1);L.setAttribute("x2",x2);L.setAttribute("y2",y2);L.setAttribute("stroke",stroke);L.setAttribute("stroke-width",w); svg.appendChild(L); }
+  function rect(x,y,w,h, fill, stroke="#111", sw=2){ const R=el("rect"); R.setAttribute("x",x);R.setAttribute("y",y);R.setAttribute("width",w);R.setAttribute("height",h);R.setAttribute("fill",fill);R.setAttribute("stroke",stroke);R.setAttribute("stroke-width",sw); svg.appendChild(R); return R; }
+  function text(x,y,content, fill="#111", size=16, weight=800, anchor="middle"){ const T=el("text"); T.setAttribute("x",x);T.setAttribute("y",y);T.setAttribute("text-anchor",anchor);T.setAttribute("dominant-baseline","middle");T.setAttribute("font-size",size);T.setAttribute("font-weight",weight);T.setAttribute("fill",fill); T.textContent=content; svg.appendChild(T); return T; }
+
+  function areaPill(label, cx, cy){
+    // gradient + pill background + icon + text (all centered at cx, cy)
+    const defs = el("defs");
+    const lg = el("linearGradient"); lg.id="pillGrad"; lg.setAttribute("x1","0"); lg.setAttribute("y1","0"); lg.setAttribute("x2","0"); lg.setAttribute("y2","1");
+    const s1 = el("stop"); s1.setAttribute("offset","0%"); s1.setAttribute("stop-color","#7c3aed");
+    const s2 = el("stop"); s2.setAttribute("offset","100%"); s2.setAttribute("stop-color","#c084fc");
+    lg.appendChild(s1); lg.appendChild(s2); defs.appendChild(lg);
+    svg.appendChild(defs);
+
+    // measure text width
+    const tmp = text(cx, cy, label, "#111", 14, 800, "start");
+    const w = tmp.getBBox().width; svg.removeChild(tmp);
+
+    const padX = 14, padY = 8, gap = 10, icon = 18;
+    const totalW = padX + icon + gap + w + padX;
+    const totalH = padY*2 + Math.max(icon, 16);
+
+    const rx = cx - totalW/2, ry = cy - totalH/2;
+    const bg = rect(rx, ry, totalW, totalH, "#fff9c4", "#facc15", 1.5); bg.setAttribute("rx","12");
+    const sq = rect(rx + padX, ry + (totalH-icon)/2, icon, icon, "url(#pillGrad)", "#7c3aed", 0.8); sq.setAttribute("rx","4");
+    text(rx + padX + icon + gap, ry + totalH/2, label, "#111", 14, 800, "start");
+  }
+
+  function draw(){
+    clear();
+
+    const b=10, half=5, x=3; // fixed example
+    const s=25; // scale (so everything fits comfortably)
+    const ax = pad, ay = pad;
+    const cx = pad + (size - 2*pad)/2;
+
+    // x^2
+    if(step>=1){
+      rect(ax, ay, x*s, x*s, "#bae6fd", "#0ea5e9", 2);
+      text(ax + x*s/2, ay + x*s/2, "x²", "#0b5670", 18, 800);
+      line(ax, ay-14, ax + x*s, ay-14, "#0ea5e9", 1.5);
+      line(ax-14, ay, ax-14, ay + x*s, "#0ea5e9", 1.5);
+      text(ax + x*s/2, ay-20, "x", "#0ea5e9", 12, 700);
+      text(ax-20, ay + x*s/2, "x", "#0ea5e9", 12, 700, "end");
+    }
+
+    // step 2: 10x rectangle
+    if(step===2){
+      rect(ax + x*s, ay, 10*s, x*s, "#d1fae5", "#16a34a", 2);
+      line(ax + x*s, ay-26, ax + x*s + 10*s, ay-26, "#16a34a", 2);
+      text(ax + x*s + 5*s, ay-32, i18n[lang].top10, "#16a34a", 12, 800);
+      text(ax + x*s + 5*s, ay + x*s/2, i18n[lang].area10x, "#166534", 16, 800);
+    }
+
+    // step 3: two 5x
+    if(step===3){
+      rect(ax + x*s, ay, 5*s, x*s, "#bbf7d0", "#22c55e", 2);
+      rect(ax + x*s + 5*s, ay, 5*s, x*s, "#bbf7d0", "#22c55e", 2);
+      text(ax + x*s + 2.5*s, ay + x*s/2, "5x", "#166534", 14, 700);
+      text(ax + x*s + 7.5*s, ay + x*s/2, "5x", "#166534", 14, 700);
+      line(ax + x*s, ay-26, ax + x*s + 10*s, ay-26, "#22c55e", 2);
+      text(ax + x*s + 5*s, ay-32, i18n[lang].top10, "#22c55e", 12, 800);
+    }
+
+    // step 4: L shape with measurements 5
+    if(step>=4){
+      rect(ax + x*s, ay, 5*s, x*s, "#bbf7d0", "#22c55e", 2);
+      line(ax + x*s, ay-26, ax + x*s + 5*s, ay-26, "#22c55e", 2);
+      text(ax + x*s + 2.5*s, ay-32, i18n[lang].measure5, "#22c55e", 12, 800);
+
+      rect(ax, ay + x*s, x*s, 5*s, "#bbf7d0", "#22c55e", 2);
+      line(ax-26, ay + x*s, ax-26, ay + x*s + 5*s, "#22c55e", 2);
+      text(ax-32, ay + x*s + 2.5*s, i18n[lang].measure5, "#22c55e", 12, 800, "end");
+
+      text(ax + x*s + 2.5*s, ay + x*s/2, "5x", "#166534", 14, 700);
+      text(ax + x*s/2, ay + x*s + 2.5*s, "5x", "#166534", 14, 700);
+    }
+
+    // step 5: add 5^2 and outline
+    if(step>=5){
+      rect(ax, ay, (x+half)*s, (x+half)*s, "none", "#111", 2);
+      rect(ax + x*s, ay + x*s, 5*s, 5*s, "#e9d5ff", "#a855f7", 2);
+      text(ax + x*s + 2.5*s, ay + x*s + 2.5*s, "5²", "#5b21b6", 16, 800);
+      line(ax + x*s, ay, ax + x*s, ay + x*s + 5*s, "#111", 2);
+      line(ax, ay + x*s, ax + x*s + 5*s, ay + x*s, "#111", 2);
+      text(ax + (x+half)*s/2, ay + (x+half)*s + 24, "(x+5)² = 64  ⇒  x = 3", "#111", 14, 800);
+    }
+
+    // Area pill in lower central region (where you marked red).
+    if(step>=2){
+      const label = (step<5) ? i18n[lang].total39 : i18n[lang].totalFinal;
+      // position near lower middle inside the SVG canvas
+      const y = ay + x*s + (step>=4 ? 5*s + 60 : 110);
+      areaPill(label, cx, y);
+    }
+
+    if(step===0){
+      rect(ax, ay, (x+10)*s, x*s, "#fff", "#ddd", 1);
+      text(ax + (x+10)*s/2, ay + x*s/2, "x² + 10x = 39", "#111", 20, 800);
+    }
+  }
+
+  function applyI18n(){
+    const t = i18n[lang];
+    title.textContent = t.title;
+    playBtn.textContent = t.play;
+    pauseBtn.textContent = t.pause;
+    resetBtn.textContent = t.reset;
+    stepLabel.textContent = t.step;
+    formula.textContent = i18n[lang].f[step];
+    explain.textContent = i18n[lang].s[step];
+  }
+
+  function updateText(){ formula.textContent = i18n[lang].f[step]; explain.textContent = i18n[lang].s[step]; }
+
+  function gotoStep(s, stopTimer=true){
+    step = Math.max(0, Math.min(5, s));
+    stepInput.value = step;
+    updateText();
+    draw();
+    if(stopTimer) pause();
+  }
+
+  function play(){
+    pause();
+    const interval = 3500;
+    timer = setInterval(()=>{
+      if(step<5){ gotoStep(step+1, false); }
+      else { pause(); }
+    }, interval);
+  }
+  function pause(){ if(timer){ clearInterval(timer); timer=null; } }
+  function reset(){ pause(); gotoStep(0); }
+
+  langSel.addEventListener("change", e => { lang = e.target.value; applyI18n(); draw(); });
+  playBtn.addEventListener("click", play);
+  pauseBtn.addEventListener("click", pause);
+  resetBtn.addEventListener("click", reset);
+  stepInput.addEventListener("input", e => gotoStep(parseInt(e.target.value), true));
+
+  applyI18n();
+  gotoStep(0, false);
+  play();
+})();
+</script>
+</body>
+</html>
