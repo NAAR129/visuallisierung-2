@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Quadratische Ergänzung — Beispiel: x² + 10x = 39</title>
+<style>
+  :root { --border:#111; --bg:#e5e7eb; --shadow:0 1px 3px rgba(0,0,0,.08); }
+  body { margin: 0; background: var(--bg); color:#111; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+  .viewport { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+  .panel { width: 100%; max-width: 960px; text-align: center; }
+  .bar { display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; margin: 10px 0; }
+  button { font: inherit; border:1px solid #d1d5db; border-radius:10px; padding:6px 10px; background:#fff; cursor:pointer; box-shadow: var(--shadow); }
+  button:hover { background:#f8fafc; }
+  #svg { border:1px solid #e5e7eb; border-radius:16px; background:#fff; box-shadow: var(--shadow); }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 600; margin-top: 10px; }
+  .explain { border:1px solid #e5e7eb; background:#fafafa; border-radius:12px; padding:10px; box-shadow:0 1px 2px rgba(0,0,0,.04); margin-top:10px; }
+  .slider { width: 100%; max-width: 560px; margin: 10px auto; display:flex; align-items:center; gap:8px; justify-content:center; }
+  .slider input { width: 100%; }
+</style>
+</head>
+<body>
+<div class="viewport">
+  <div class="panel">
+    <h1 id="title">Quadratische Ergänzung</h1>
+    <div class="bar">
+      <button id="play">Abspielen</button>
+      <button id="pause">Pause</button>
+      <button id="reset">Zurücksetzen</button>
+    </div>
+    <svg id="svg" width="560" height="600"></svg>
+    <div class="mono" id="formula">x² + 10x = 39</div>
+    
+    <div class="slider"><span id="stepLabel">Schritt</span><input id="step" type="range" min="0" max="5" step="1" value="0" /></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const i18n = {
+    title: "Quadratische Ergänzung — Beispiel: x² + 10x = 39",
+    play:"Abspielen", pause:"Pause", reset:"Zurücksetzen", step:"Schritt",
+    top10:"10", measure5:"5", area10x:"10x",
+    total39:"Gesamtfläche = 39", totalFinal:"Gesamtfläche = 39 + 25 = 64",
+    f:["x² + 10x = 39","x²","x² + 10x (Rechteck Breite 10)","x² + 10x → 5x + 5x (oben Länge 10)","x² + 5x (rechts, 5) und 5x (unten, 5)","(x+5)² = 64 ⇒ x = 3"],
+    s:["Einführung","Wir zeichnen das Quadrat x²","Wir fügen das Rechteck 10x hinzu.","Wir teilen in 5x + 5x.","Eines nach unten verschieben; 5 oben und 5 links.","5² ergänzen: (x+5)² = 64 ⇒ x=3."]
+  };
+
+  const svg = document.getElementById("svg");
+  const title = document.getElementById("title");
+  const formula = document.getElementById("formula");
+  const explain = null;
+  const playBtn = document.getElementById("play");
+  const pauseBtn = document.getElementById("pause");
+  const resetBtn = document.getElementById("reset");
+  const stepInput = document.getElementById("step");
+  const stepLabel = document.getElementById("stepLabel");
+
+  let step = 0;
+  let timer = null;
+
+  const size = 560, pad = 40;
+
+  function el(name){ return document.createElementNS("http://www.w3.org/2000/svg", name); }
+  function clear(){ while(svg.firstChild) svg.removeChild(svg.firstChild); }
+  function line(x1,y1,x2,y2, stroke="#111", w=2){ const L=el("line"); L.setAttribute("x1",x1);L.setAttribute("y1",y1);L.setAttribute("x2",x2);L.setAttribute("y2",y2);L.setAttribute("stroke",stroke);L.setAttribute("stroke-width",w); svg.appendChild(L); }
+  function rect(x,y,w,h, fill, stroke="#111", sw=2){ const R=el("rect"); R.setAttribute("x",x);R.setAttribute("y",y);R.setAttribute("width",w);R.setAttribute("height",h);R.setAttribute("fill",fill);R.setAttribute("stroke",stroke);R.setAttribute("stroke-width",sw); svg.appendChild(R); return R; }
+  function text(x,y,content, fill="#111", size=16, weight=800, anchor="middle"){ const T=el("text"); T.setAttribute("x",x);T.setAttribute("y",y);T.setAttribute("text-anchor",anchor);T.setAttribute("dominant-baseline","middle");T.setAttribute("font-size",size);T.setAttribute("font-weight",weight);T.setAttribute("fill",fill); T.textContent=content; svg.appendChild(T); return T; }
+
+  function draw(){
+    clear();
+
+    const b=10, half=5, x=3;
+    const s=25;
+    const ax = pad, ay = pad;
+
+    if(step>=1){
+      rect(ax, ay, x*s, x*s, "#bae6fd", "#0ea5e9", 2);
+      text(ax + x*s/2, ay + x*s/2, "x²", "#0b5670", 18, 800);
+    }
+
+    if(step===2){
+      rect(ax + x*s, ay, 10*s, x*s, "#d1fae5", "#16a34a", 2);
+      text(ax + x*s + 5*s, ay + x*s/2, i18n.area10x, "#166534", 16, 800);
+    }
+
+    if(step===3){
+      rect(ax + x*s, ay, 5*s, x*s, "#bbf7d0", "#22c55e", 2);
+      rect(ax + x*s + 5*s, ay, 5*s, x*s, "#bbf7d0", "#22c55e", 2);
+      text(ax + x*s + 2.5*s, ay + x*s/2, "5x", "#166534", 14, 700);
+      text(ax + x*s + 7.5*s, ay + x*s/2, "5x", "#166534", 14, 700);
+    }
+
+    if(step>=4){
+      rect(ax + x*s, ay, 5*s, x*s, "#bbf7d0", "#22c55e", 2);
+      rect(ax, ay + x*s, x*s, 5*s, "#bbf7d0", "#22c55e", 2);
+      text(ax + x*s + 2.5*s, ay + x*s/2, "5x", "#166534", 14, 700);
+      text(ax + x*s/2, ay + x*s + 2.5*s, "5x", "#166534", 14, 700);
+    }
+
+    if(step>=5){
+      rect(ax, ay, (x+half)*s, (x+half)*s, "none", "#111", 2);
+      rect(ax + x*s, ay + x*s, 5*s, 5*s, "#e9d5ff", "#a855f7", 2);
+      text(ax + x*s + 2.5*s, ay + x*s + 2.5*s, "5²", "#5b21b6", 16, 800);
+    }
+
+    if(step===0){
+      rect(ax, ay, (x+10)*s, x*s, "#fff", "#ddd", 1);
+      text(ax + (x+10)*s/2, ay + x*s/2, "x² + 10x = 39", "#111", 20, 800);
+    }
+
+    const label = (step<5) ? i18n.total39 : i18n.totalFinal;
+    text(280, 520, label, "#111", 16, 800);
+  }
+
+  function updateText(){ formula.textContent = i18n.f[step];  }
+  function gotoStep(s, stopTimer=true){ step = Math.max(0, Math.min(5, s)); stepInput.value = step; updateText(); draw(); if(stopTimer) pause(); }
+  function play(){ pause(); timer = setInterval(()=>{ if(step<5){ gotoStep(step+1, false); } else { pause(); } }, 3500); }
+  function pause(){ if(timer){ clearInterval(timer); timer=null; } }
+  function reset(){ pause(); gotoStep(0); }
+
+  title.textContent = i18n.title;
+  playBtn.textContent = i18n.play;
+  pauseBtn.textContent = i18n.pause;
+  resetBtn.textContent = i18n.reset;
+  stepLabel.textContent = i18n.step;
+
+  playBtn.addEventListener("click", play);
+  pauseBtn.addEventListener("click", pause);
+  resetBtn.addEventListener("click", reset);
+  stepInput.addEventListener("input", e => gotoStep(parseInt(e.target.value), true));
+
+  gotoStep(0, false);
+  play();
+})();
+</script>
+</body>
+</html>
